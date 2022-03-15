@@ -21,13 +21,14 @@ class StratifiedKFold3(StratifiedKFold):
         return fold_indices
 
 
-def split_normalize_save(savedirname,X,y,folds):
+def split_normalize_save(savedirname,X,y,folds,normalize_y = False):
     if not os.path.exists(savedirname):
         os.makedirs(savedirname)
     indices = np.arange(y.shape[0])
     X,y = X.astype(float),y.astype(float)
     for f in range(folds):
         scaler = StandardScaler()
+        scaler_y = StandardScaler()
         tr_ind, val_ind, test_ind = StratifiedKFold3(folds).split(indices, y)[f]
         X_tr = X[tr_ind,:]
         X_val = X[val_ind,:]
@@ -35,11 +36,19 @@ def split_normalize_save(savedirname,X,y,folds):
         y_tr = y[tr_ind]
         y_val = y[val_ind]
         y_test = y[test_ind]
+        if normalize_y:
+            y_tr = scaler_y.fit_transform(y_tr[:,np.newaxis])
+            y_val = scaler_y.transform(y_val[:,np.newaxis])
+            y_test = scaler_y.transform(y_test[:,np.newaxis])
+            y_tr = y_tr.squeeze()
+            y_val = y_val.squeeze()
+            y_test = y_test.squeeze()
+
         X_tr = scaler.fit_transform(X_tr)
         X_val = scaler.transform(X_val)
         X_test = scaler.transform(X_test)
         with open(f'{savedirname}/fold_{f}.npy', 'wb') as f:
-            np.save(f, {'tr':[X_tr,y_tr],'val':[X_val,y_val],'test':[X_test,y_test]})
+            np.save(f, {'tr':[X_tr,y_tr],'val':[X_val,y_val],'test':[X_test,y_test], 'normalizer': scaler_y})
 
 
 

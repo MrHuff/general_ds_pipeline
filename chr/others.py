@@ -4,7 +4,7 @@ from scipy.stats.mstats import mquantiles
 from scipy.stats import skew
 
 from chr.grey_boxes import HistogramAccumulator
-from chr import black_boxes
+# from chr import black_boxes
 from chr.histogram import Histogram, _estim_dist
 
 import pdb

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import interpolate
 import pdb
-
+import tqdm
 def _estim_dist_old(quantiles, percentiles, y_min, y_max, smooth_tails, tau):
     """ Estimate CDF from list of quantiles, with smoothing """
 
@@ -97,7 +97,7 @@ class Histogram():
         def interp1d(x, y, a, b):
             return interpolate.interp1d(x, y, bounds_error=False, fill_value=(a, b), assume_sorted=True)
 
-        for i in range(n):
+        for i in tqdm.tqdm(range(n)):
             cdf, inv_cdf = _estim_dist(quantiles[i], percentiles, y_min=ymin, y_max=ymax, 
                                        smooth_tails=smooth_tails, tau=0.01)
             cdf_hat = cdf(self.breaks)

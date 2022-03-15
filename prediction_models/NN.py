@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import torch
 from utils.other import *
@@ -84,7 +86,7 @@ class nn_regression():
 
     def fit(self,params):
         self.device = params['device']
-        self.model = feature_map(**params['nn_params'])
+        self.model = feature_map(**params['nn_params']).to(self.device)
         opt=torch.optim.Adam(self.model.parameters(),lr=params['lr'])
         best=-np.inf
         count=0
@@ -92,13 +94,16 @@ class nn_regression():
             self.train_loop(opt)
             r2=self.validation_loop('val')
             if r2>best:
-                #Dump model
+                self.best_model = copy.deepcopy(self.model)
                 best = r2
+                print(r2)
                 count=0
             else:
                 count+=1
             if count>params['patience']:
+                self.model = self.best_model
                 return
+        self.model = self.best_model
 
     def train_loop(self,opt):
         self.dataloader.dataset.set('train')
@@ -106,7 +111,7 @@ class nn_regression():
             X=X.to(self.device)
             y=y.to(self.device)
             y_pred=self.model(X)
-            tot_loss = self.loss(y_pred,y)
+            tot_loss = self.loss(y_pred.squeeze(),y.squeeze())
             opt.zero_grad()
             tot_loss.backward()
             opt.step()
@@ -125,7 +130,7 @@ class nn_regression():
                 all_y.append(y.cpu().numpy())
         all_y_pred=np.concatenate(all_y_pred,axis=0)
         all_y=np.concatenate(all_y,axis=0)
-        return calc_r2(all_y_pred,all_y)
+        return calc_r2(all_y_pred.squeeze(),all_y.squeeze())
 
     def evaluate(self,mode):
         return self.validation_loop(mode)

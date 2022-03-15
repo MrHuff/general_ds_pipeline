@@ -11,7 +11,7 @@ class lgbm_regression():
     def fit(self,params,val_data):
         X_val,Y_val = val_data
         validation_data =  lgb.Dataset(X_val, Y_val)
-        model = lgb.train(params['lgb_params'],
+        self.model = lgb.train(params['lgbm_params'],
                                self.train_data,
                                num_boost_round=params['its'],
                                valid_sets=[validation_data],

@@ -84,12 +84,18 @@ class train_object_regression():
     def __init__(self,job_params):
         self.global_hyperit=0
         self.data_path=job_params['data_path']
+        self.job_name=job_params['job_name']
         self.fold=job_params['fold']
         self.model_string = job_params['model_string']
-        data=np.load(self.data_path+f'/fold_{self.fold}.npy')
+        self.save_path = f'{self.job_name}/{self.data_path}_{self.model_string}_{self.fold}/'
+        if not os.path.exists(self.save_path):
+            os.makedirs(self.save_path)
+
+        data=np.load(self.data_path+f'/fold_{self.fold}.npy',allow_pickle=True).tolist()
         self.X_tr,self.Y_tr = data['tr']
         self.X_val,self.Y_val = data['val']
         self.X_test,self.Y_test = data['test']
+
 
         self.dataset=general_dataset(self.X_tr,self.Y_tr,
                                      self.X_val, self.Y_val,
@@ -98,10 +104,6 @@ class train_object_regression():
         self.dataset.set('train')
         self.dataloader=custom_dataloader(self.dataset)
         self.job_params=job_params
-
-
-
-
 
         if self.model_string == 'ols':
             self.hyperopt_params =['placeholder']
@@ -119,16 +121,16 @@ class train_object_regression():
             self.hyperopt_params = ['k']
             hparams = {'k': list(range(1,50))}
         if self.model_string == 'GP':
-            self.hyperopt_params = ['placeholder']
-            hparams = {'placeholder': [0, 1]}
+            self.hyperopt_params = ['lr']
+            hparams = {'lr': [1e-3, 1e-2,1e-1,1.0]}
 
         if self.model_string == 'NN':
             self.hyperopt_params = ['transformation', 'depth_x', 'width_x', 'bs', 'lr']
             hparams = {
                 'depth_x': [1,2,3,4],
                 'width_x': [32,64,128],
-                'bs': [100,200,250,500],
-                'lr': [1e-2],
+                'bs': [100,200,250,500,1000],
+                'lr': [1e-2,1e-3,1e-1],
                 'transformation': [torch.tanh,torch.relu],
             }
 
@@ -137,8 +139,8 @@ class train_object_regression():
             hparams = {
                 'depth_x': [1, 2, 3, 4],
                 'width_x': [32, 64, 128],
-                'bs': [100, 200, 250, 500],
-                'lr': [1e-2],
+                'bs': [100, 200, 250, 500,1000],
+                'lr': [1e-2,1e-3,1e-1],
                 'transformation': [torch.nn.Tanh(), torch.nn.ReLU()],
                 'dropout':[0.0,0.1,0.2,0.3]
             }
@@ -188,29 +190,63 @@ class train_object_regression():
             m.fit(params)
 
         if self.model_string == 'GP':
+            params['epochs'] = self.job_params['epochs']
+            params['device'] = self.job_params['device']
+
+
             m = GP_regression(X_tr=self.X_tr,Y_tr=self.Y_tr)
             m.fit(params)
 
         if self.model_string == 'NN':
             m = nn_regression(self.dataloader)
+            params['epochs'] = self.job_params['epochs']
+            params['device'] = self.job_params['device']
+            nn_params = {
+                'd_in_x': self.X_tr.shape[1],
+                'cat_size_list': [],
+                'output_dim': 1,
+                'transformation': params['transformation'],
+                'layers_x': [params['width_x']] * params['depth_x'],
+            }
+            params['nn_params'] = nn_params
+            params['patience'] = self.job_params['patience']
+
+            m.fit(params)
 
         if self.model_string == 'chr':
             m = chr_nn(X_tr=self.X_tr,Y_tr=self.Y_tr,dataloader=self.dataloader)
+            params['epochs'] = self.job_params['epochs']
+            params['device'] = self.job_params['device']
+            params['patience'] = self.job_params['patience']
+            params['x_in'] = self.X_tr.shape[1]
+            m.fit(params)
 
         if self.model_string == 'lightgbm':
             lgbm_params=self.get_lgm_params(params)
-            m = lgbm_regression(X_tr=self.X_tr,Y_tr=self.Y_tr)
-            m.fit(lgbm_params,(self.X_val,self.Y_val))
 
-        #decide where to dump model...
-        #get val and test error
-        # get parameters...
+            params['lgbm_params']=lgbm_params
+            params['its']=1000
+
+            m = lgbm_regression(X_tr=self.X_tr,Y_tr=self.Y_tr)
+            m.fit(params,(self.X_val,self.Y_val))
+
+        if self.model_string in ['ols','lasso','ridge','elastic','knn','GP','lightgbm']:
+            val_error = m.evaluate(self.X_val,self.Y_val)
+            test_error = m.evaluate(self.X_test,self.Y_test)
+        else:
+            val_error = m.evaluate('val')
+            test_error = m.evaluate('test')
+        model_copy = dill.dumps(m.model)
+
+        pickle.dump(model_copy,
+                    open(self.save_path+f'best_model_{self.global_hyperit}.p',
+                         "wb"))
 
         self.global_hyperit+=1
-        return  {'loss': val_loss,
+        return  {'loss': val_error,
                 'status': STATUS_OK,
-                'test_loss': test_loss,
-                 'net_params':nn_params
+                'test_loss': test_error,
+                 'net_params':params
                 }
 
 
@@ -249,6 +285,8 @@ class train_object_regression():
         pickle.dump(model_copy,
                     open(self.save_path + 'hyperopt_database.p',
                          "wb"))
+
+
 
 # class train_object_classification():
 #     def __init__(self,job_params,hparamspace):

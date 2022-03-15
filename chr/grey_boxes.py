@@ -1,7 +1,7 @@
 import numpy as np
-from tqdm.autonotebook import tqdm
+# from tqdm.autonotebook import tqdm
 import copy
-
+import tqdm
 def smallestSubWithSum(arr, x, include=None):
     """
     Credit: https://www.geeksforgeeks.org/minimum-length-subarray-sum-greater-given-value/
@@ -60,7 +60,7 @@ class HistogramAccumulator:
         # This is only used to predict sets rather than intervals
         self.order = np.argsort(-pi, axis=1)
         self.ranks = np.empty_like(self.order)
-        for i in range(self.n):
+        for i in tqdm.tqdm(range(self.n)):
             self.ranks[i, self.order[i]] = np.arange(len(self.order[i]))
         self.pi_sort = -np.sort(-pi, axis=1)
         self.Z = np.round(self.pi_sort.cumsum(axis=1),9)
@@ -78,7 +78,7 @@ class HistogramAccumulator:
         S_grid_random[k_star] = S_random
 
         # Compute smaller sets
-        for k in range(k_star+1, n_grid):
+        for k in tqdm.tqdm(range(k_star+1, n_grid)):
             a = S_grid[k-1,:,0]
             b = S_grid[k-1,:,1]
             S, S_random = self.predict_intervals_single(alpha_grid[k], epsilon=epsilon, a=a, b=b)
@@ -86,7 +86,7 @@ class HistogramAccumulator:
             S_grid_random[k] = S_random
 
         # Compute larger sets
-        for k in range(0,k_star)[::-1]:
+        for k in tqdm.tqdm(range(0,k_star)[::-1]):
             alpha = alpha_grid[k]
             S, S_random = self.predict_intervals_single(alpha, epsilon=epsilon, include=S_grid_random[k+1])
             S_grid[k] = S
@@ -162,7 +162,7 @@ class HistogramAccumulator:
         S_grid = self.compute_interval_sequence(epsilon=epsilon)
         if verbose:
             print("Computing conformity scores.")
-        for j in tqdm(range(len(self.alpha_grid)), disable=(not verbose)):
+        for j in tqdm.tqdm(range(len(self.alpha_grid))):
             alpha = self.alpha_grid[j]
             S = S_grid[j]
             band_left = self.breaks[S[:,0]-1]
