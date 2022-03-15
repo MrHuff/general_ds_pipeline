@@ -5,7 +5,8 @@ __pycache__/
 *.idea
 # C extensions
 *.so
-
+*.csv
+*.npy
 # Distribution / packaging
 .Python
 build/

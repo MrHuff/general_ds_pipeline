@@ -10,16 +10,17 @@ class lgbm_regression():
 
     def fit(self,params,val_data):
         X_val,Y_val = val_data
-        validation_data =  lgb.Dataset(X_val, label=Y_val)
-        bst = lgb.train(params['hparams'], self.train_data, params['num_round'], valid_sets=[validation_data])
-        # pass
-        # self.model = ElasticNet(alpha=hparams['alpha'])
-        # self.model.fit(self.X_tr, self.Y_tr)
-
+        validation_data =  lgb.Dataset(X_val, Y_val)
+        model = lgb.train(params['lgb_params'],
+                               self.train_data,
+                               num_boost_round=params['its'],
+                               valid_sets=[validation_data],
+                               early_stopping_rounds=100,
+                               verbose_eval=True,
+                               )
 
     def evaluate(self,X_val,Y_val):
-        pass
-        y_pred = self.model.predict(X_val)
+        y_pred = self.model.predict(X_val,num_iteration=self.model.best_iteration)
         r2 = calc_r2(y_pred,Y_val)
         return r2
 

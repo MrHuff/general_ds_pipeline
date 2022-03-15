@@ -6,12 +6,16 @@ from sklearn.model_selection import StratifiedKFold
 import os
 
 class StratifiedKFold3(StratifiedKFold):
-    def split(self, X, y, groups=None):
+    def split(self, X, y, groups=None,stratify=False):
         s = super().split(X, y, groups)
         fold_indices=[]
         for train_indxs, test_indxs in s:
             y_train = y[train_indxs]
-            train_indxs, cv_indxs = train_test_split(train_indxs,stratify=y_train, test_size=(1 / (self.n_splits - 1)))
+            if stratify:
+                train_indxs, cv_indxs = train_test_split(train_indxs,stratify=y_train, test_size=(1 / (self.n_splits - 1)))
+            else:
+                train_indxs, cv_indxs = train_test_split(train_indxs, test_size=(1 / (self.n_splits - 1)))
+
             # yield train_indxs, cv_indxs, test_indxs
             fold_indices.append((train_indxs, cv_indxs, test_indxs))
         return fold_indices
@@ -21,7 +25,7 @@ def split_normalize_save(savedirname,X,y,folds):
     if not os.path.exists(savedirname):
         os.makedirs(savedirname)
     indices = np.arange(y.shape[0])
-
+    X,y = X.astype(float),y.astype(float)
     for f in range(folds):
         scaler = StandardScaler()
         tr_ind, val_ind, test_ind = StratifiedKFold3(folds).split(indices, y)[f]

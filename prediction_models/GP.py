@@ -3,9 +3,9 @@ import gpytorch
 import torch
 import tqdm
 from utils.other import *
-class ExactGPGP(gpytorch.models.ExactGP):
+class ExactGP(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood):
-        super(ExactGPGP, self).__init__(train_x, train_y, likelihood)
+        super(ExactGP, self).__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
         self.kernel = gpytorch.kernels.ScaleKernel(gpytorch.kernels.keops.RBFKernel(ard_num_dims=train_x.shape[1]))
 
@@ -20,7 +20,7 @@ class GP_regression():
         self.X_tr = torch.from_numpy(X_tr)
         self.Y_tr = torch.from_numpy(Y_tr)
         self.likelihood = gpytorch.likelihoods.GaussianLikelihood()
-        self.model = ExactGPGP(likelihood=self.likelihood, train_x=self.X_tr, train_y=self.Y_tr)
+        self.model = ExactGP(likelihood=self.likelihood, train_x=self.X_tr, train_y=self.Y_tr)
 
     def fit(self,hparams):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.1)  # Includes GaussianLikelihood parameters

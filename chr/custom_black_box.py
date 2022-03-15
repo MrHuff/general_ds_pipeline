@@ -22,7 +22,7 @@ class NNet(nn.Module):
     """ Conditional quantile estimator, formulated as neural net
     """
 
-    def __init__(self, quantiles, num_features, num_hidden=64, dropout=0.1, no_crossing=False):
+    def __init__(self, quantiles, num_features,act_func=nn.Tanh(),n_layers=1, num_hidden=64, dropout=0.1, no_crossing=False):
         """ Initialization
         Parameters
         ----------
@@ -33,21 +33,25 @@ class NNet(nn.Module):
         no_crossing: boolean, whether to explicitly prevent quantile crossovers
         """
         super(NNet, self).__init__()
-
+        self.quantiles = quantiles
         self.no_crossing = no_crossing
 
         self.num_quantiles = len(quantiles)
-
+        layers=[
+            nn.Linear(num_features, num_hidden),
+            act_func,
+            nn.Dropout(dropout),
+        ]
+        for i in range(n_layers):
+            layers=layers+[nn.Linear(num_hidden, num_hidden),
+                act_func,
+                nn.Dropout(dropout)]
+        layers.append(nn.Linear(num_hidden, self.num_quantiles))
         # Construct base network
         self.base_model = nn.Sequential(
-            nn.Linear(num_features, num_hidden),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(num_hidden, num_hidden),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(num_hidden, self.num_quantiles),
+            *layers
         )
+
         self.init_weights()
 
     def init_weights(self):
@@ -106,8 +110,8 @@ class QNet:
     """ Fit a neural network (conditional quantile) to training data
     """
 
-    def __init__(self, quantiles, num_features, no_crossing=False, dropout=0.2, learning_rate=0.001,
-                 num_epochs=100, batch_size=16, num_hidden=64, random_state=0, calibrate=0, verbose=False):
+    def __init__(self, quantile_net, learning_rate=0.001,
+                 num_epochs=100, batch_size=16, random_state=0, calibrate=0, verbose=False):
         """ Initialization
         Parameters
         ----------
@@ -119,16 +123,10 @@ class QNet:
 
         # Detect whether CUDA is available
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-        # Store input (sort the quantiles)
+        self.model = quantile_net
+        quantiles = self.model.quantiles
         quantiles = np.sort(quantiles)
         self.quantiles = torch.from_numpy(quantiles).float().to(self.device)
-        self.num_features = num_features
-
-        # Define NNet model
-        self.model = NNet(self.quantiles, self.num_features, num_hidden=num_hidden, dropout=dropout,
-                          no_crossing=no_crossing)
-        self.model.to(self.device)
 
         # Initialize optimizer
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
@@ -205,27 +203,11 @@ class QNet:
         y_train_batch = train_dataset.y_data.to(self.device)
 
         for e in tqdm(range(1, num_epochs + 1)):
-
             # TRAINING
             train_epoch_loss = 0
             self.model.train()
-
-            if batch_size < 500:
-
-                for X_train_batch, y_train_batch in train_loader:
-                    X_train_batch, y_train_batch = X_train_batch.to(self.device), y_train_batch.to(self.device)
-                    self.optimizer.zero_grad()
-
-                    y_train_pred = self.model(X_train_batch).to(self.device)
-
-                    train_loss = self.loss_func(y_train_pred, y_train_batch)
-
-                    train_loss.backward()
-                    self.optimizer.step()
-
-                    train_epoch_loss += train_loss.item()
-
-            else:
+            for X_train_batch, y_train_batch in train_loader:
+                X_train_batch, y_train_batch = X_train_batch.to(self.device), y_train_batch.to(self.device)
                 self.optimizer.zero_grad()
 
                 y_train_pred = self.model(X_train_batch).to(self.device)
@@ -236,6 +218,8 @@ class QNet:
                 self.optimizer.step()
 
                 train_epoch_loss += train_loss.item()
+
+
 
             # VALIDATION
             if val_dataset is not None:
