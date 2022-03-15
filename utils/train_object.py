@@ -243,13 +243,11 @@ class train_object_regression():
                          "wb"))
 
         self.global_hyperit+=1
-        return  {'loss': val_error,
+        return  {'loss': -val_error,
                 'status': STATUS_OK,
                 'test_loss': test_error,
                  'net_params':params
                 }
-
-
 
     def get_lgm_params(self,space):
         lgb_params = dict()

@@ -14,7 +14,7 @@ if __name__ == '__main__':
     X=raw_df[x_cols].values
     y=raw_df['median_house_value'].values
 
-    split_normalize_save(folder,X,y,5,normalize_y=False)
+    split_normalize_save(folder,X,y,5,normalize_y=True,column_names=x_cols)
 
 
 

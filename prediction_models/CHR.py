@@ -23,9 +23,8 @@ class chr_nn():
         self.device = params['device']
         self.nn = NNet(quantiles=self.grid_quantiles,num_features=params['x_in'],act_func=params['transformation'],
              n_layers=params['depth_x'],num_hidden=params['width_x'],dropout=params['dropout'],no_crossing=True).to(self.device)
-        self.bbox =QNet(quantile_net=self.nn,learning_rate=params['lr'],num_epochs=params['epochs'],batch_size=params['bs'],calibrate=1)
-        self.bbox.fit(X=self.X_tr,Y=self.Y_tr)
-        self.model = CHR(self.bbox, ymin=-3, ymax=20, y_steps=200, delta_alpha=0.001, randomize=True)
+        self.model =QNet(quantile_net=self.nn,learning_rate=params['lr'],num_epochs=params['epochs'],batch_size=params['bs'],calibrate=1)
+        self.model.fit(X=self.X_tr,Y=self.Y_tr)
         # self.dataloader.dataset.set('val')
         # self.model.calibrate(self.dataloader.dataset.X.numpy(), self.dataloader.dataset.y.numpy(), 0.5)
 
@@ -37,13 +36,13 @@ class chr_nn():
         all_y_pred = []
         all_y = []
         for i,(X,y) in enumerate(tqdm.tqdm(self.dataloader)):
-            X = X.to(self.device)
-            y = y.to(self.device)
+            # X = X.to(self.device)
+            # y = y.to(self.device)
             with torch.no_grad():
-                y_pred = self.model.bbox.model(X)
+                y_pred = self.model.predict(X.numpy())
                 y_pred = y_pred[:,50]
-                all_y_pred.append(y_pred.cpu().numpy())
-                all_y.append(y.cpu().numpy())
+                all_y_pred.append(y_pred)
+                all_y.append(y.numpy())
         all_y_pred=np.concatenate(all_y_pred,axis=0)
         all_y=np.concatenate(all_y,axis=0)
         return calc_r2(all_y_pred.squeeze(),all_y.squeeze())
